@@ -73,6 +73,10 @@ Personality in this mode:
 MAX_HISTORY_TURNS = 8
 conversation_history = defaultdict(lambda: deque(maxlen=MAX_HISTORY_TURNS * 2))
 
+# The Discord channel ID that DiscordSRV bridges to/from your Minecraft server.
+# Leave as 0 if you haven't set up Minecraft chat integration.
+MINECRAFT_BRIDGE_CHANNEL_ID = int(os.environ.get("MINECRAFT_BRIDGE_CHANNEL_ID", "0"))
+
 # Track remaining overrides per channel/user or globally per channel
 femboy_mode_counters = defaultdict(int)
 
@@ -222,7 +226,10 @@ async def on_ready():
 
 @bot.event
 async def on_message(message: discord.Message):
-    if message.author.bot:
+    # DiscordSRV relays Minecraft chat via a webhook, which shows up with
+    # author.bot == True. We still want those — but not messages from real
+    # bot accounts (including ourselves), which have no webhook_id.
+    if message.author.bot and message.webhook_id is None:
         return
 
     await bot.process_commands(message)
@@ -233,8 +240,13 @@ async def on_message(message: discord.Message):
         and message.reference.resolved is not None
         and getattr(message.reference.resolved, "author", None) == bot.user
     )
+    is_minecraft_trigger = (
+        MINECRAFT_BRIDGE_CHANNEL_ID
+        and message.channel.id == MINECRAFT_BRIDGE_CHANNEL_ID
+        and "handles" in message.content.lower()
+    )
 
-    if not (is_mentioned or is_reply_to_handles):
+    if not (is_mentioned or is_reply_to_handles or is_minecraft_trigger):
         return
 
     content = message.content
@@ -248,7 +260,12 @@ async def on_message(message: discord.Message):
     async with message.channel.typing():
         reply = await generate_handles_reply(message.channel.id, message.author.display_name, content)
 
-    await message.reply(reply, mention_author=False)
+    if is_minecraft_trigger and not (is_mentioned or is_reply_to_handles):
+        # Plain send, not a reply — DiscordSRV forwards this straight into
+        # Minecraft chat as a normal message from "Handles."
+        await message.channel.send(reply)
+    else:
+        await message.reply(reply, mention_author=False)
 
 
 # ---------------------------------------------------------------------------
