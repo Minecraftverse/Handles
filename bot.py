@@ -1,7 +1,7 @@
 """
 HANDLES — Discord bot
 Corrected lore: Affiliated with the Eleventh Doctor
-Now powered by Cerebras Inference (OpenAI-compatible)
+Powered by Groq (llama-3.1-8b-instant for high free daily limits)
 """
 
 import os
@@ -27,21 +27,21 @@ except ImportError:
     keep_alive = None
 
 # ---------------------------------------------------------------------------
-# Configuration — Cerebras
+# Configuration — Groq
 # ---------------------------------------------------------------------------
 
 DISCORD_TOKEN = os.environ.get("DISCORD_TOKEN")
-CEREBRAS_API_KEY = os.environ.get("CEREBRAS_API_KEY")
-CEREBRAS_MODEL = os.environ.get("CEREBRAS_MODEL", "gpt-oss-120b")  # alternatives: llama-3.3-70b, llama3.1-8b, gemma-4-31b
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+GROQ_MODEL = os.environ.get("GROQ_MODEL", "llama-3.1-8b-instant")  # high free daily limit
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Missing DISCORD_TOKEN environment variable.")
-if not CEREBRAS_API_KEY:
-    raise RuntimeError("Missing CEREBRAS_API_KEY environment variable.")
+if not GROQ_API_KEY:
+    raise RuntimeError("Missing GROQ_API_KEY environment variable.")
 
 client = OpenAI(
-    api_key=CEREBRAS_API_KEY,
-    base_url="https://api.cerebras.ai/v1",
+    api_key=GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1",
 )
 
 SYSTEM_PROMPT = """You are Handles: a severed Cyberman head.
@@ -192,7 +192,7 @@ async def generate_handles_reply(channel_id: int, user_display_name: str, user_m
 
     def _call():
         response = client.chat.completions.create(
-            model=CEREBRAS_MODEL,
+            model=GROQ_MODEL,
             messages=messages,
             max_tokens=400,
             temperature=0.85 if femboy_mode_counters[channel_id] > 0 else 0.75,
